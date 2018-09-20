@@ -1,0 +1,608 @@
+---
+title: ''
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+#**What made you happy today?**
+##**Do causes of happiness differ between genders, parenthoods, reflection periods, and categories?**
+By Yanzi Shen
+\newline
+
+
+<font size=3>
+HappyDB is "a corpus of 100,000 crowd-sourced happy moments". 
+In this project, I apply text mining techniques and natural language processing to derive interesting finds in this collection of happy moments and look deeper into the causes that make us happy.
+
+
+```{r load libraries, warning=FALSE, message=FALSE,echo=FALSE}
+packages.used=c("rvest", "tibble", "qdap", "ggplot2",
+                "sentimentr", "gplots", "dplyr","gcookbook",
+                "tm", "syuzhet", "factoextra", "scales", "RColorBrewer","wordcloud",
+                "RANN", "plotly", "topicmodels","beeswarm","cluster","tidytext","tidyverse","DT","wordcloud2","gridExtra","ngram")
+
+
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE)
+}
+
+
+library("rvest")
+library("tibble")
+library("qdap")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("plotly")
+library("topicmodels")
+library("beeswarm")
+library("cluster") 
+library("tidytext")
+library("wordcloud")
+library("RColorBrewer")
+library("ggplot2")
+library("gcookbook")
+library("tidyverse")
+library("wordcloud2")
+library("gridExtra")
+library("ngram")
+```
+
+
+```{r read data, warning=FALSE, message=FALSE,echo=FALSE}
+urlfile<-'https://raw.githubusercontent.com/rit-public/HappyDB/master/happydb/data/cleaned_hm.csv'
+hm_data <- read_csv(urlfile)
+```
+
+
+```{r text processing in tm,warning=FALSE, message=FALSE,echo=FALSE}
+corpus <- VCorpus(VectorSource(hm_data$cleaned_hm))%>%
+  tm_map(content_transformer(tolower))%>%
+  tm_map(removePunctuation)%>%
+  tm_map(removeNumbers)%>%
+  tm_map(removeWords, character(0))%>%
+  tm_map(stripWhitespace)
+```
+
+```{r stemming,warning=FALSE, message=FALSE,echo=FALSE}
+stemmed <- tm_map(corpus, stemDocument) %>%
+  tidy() %>%
+  select(text)
+```
+
+
+```{r tidy dictionary,warning=FALSE,message=FALSE,echo=FALSE}
+dict <- tidy(corpus) %>%
+  select(text) %>%
+  unnest_tokens(dictionary, text)
+```
+
+
+```{r stopwords,warning=FALSE,message=FALSE,echo=FALSE}
+data("stop_words")
+
+word <- c("happy","ago","yesterday","lot","today","months","month",
+                 "happier","happiest","last","week","past")
+
+stop_words <- stop_words %>%
+  bind_rows(mutate(tibble(word), lexicon = "updated"))
+```
+
+
+```{r tidy stems with dictionary,warning=FALSE,message=FALSE,echo=FALSE}
+completed <- stemmed %>%
+  mutate(id = row_number()) %>%
+  unnest_tokens(stems, text) %>%
+  bind_cols(dict) %>%
+  anti_join(stop_words, by = c("dictionary" = "word"))
+```
+
+
+```{r stem completion, warning=FALSE, message=FALSE,echo=FALSE}
+completed <- completed %>%
+  group_by(stems) %>%
+  count(dictionary) %>%
+  mutate(word = dictionary[which.max(n)]) %>%
+  ungroup() %>%
+  select(stems, word) %>%
+  distinct() %>%
+  right_join(completed) %>%
+  select(-stems)
+```
+
+
+```{r reverse unnest,warning=FALSE, message=FALSE,echo=FALSE}
+completed <- completed %>%
+  group_by(id) %>%
+  summarise(text = str_c(word, collapse = " ")) %>%
+  ungroup()
+```
+
+
+```{r cleaned hm_data, warning=FALSE, message=FALSE,echo=FALSE}
+hm_data <- hm_data %>%
+  mutate(id = row_number()) %>%
+  inner_join(completed)
+```
+
+```{r export data,warning=FALSE, message=FALSE,echo=FALSE}
+write_csv(hm_data, "../output/processed_moments.csv")
+```
+
+
+```{r load data, warning=FALSE, message=FALSE,echo=FALSE}
+urlfile<-'https://raw.githubusercontent.com/rit-public/HappyDB/master/happydb/data/demographic.csv'
+demo_data <- read_csv(urlfile)
+```
+
+```{r combining data, warning=FALSE, message=FALSE,echo=FALSE}
+hm_data <- hm_data %>%
+  inner_join(demo_data, by = "wid") %>%
+  select(wid,
+         original_hm,
+         cleaned_hm,
+         gender,
+         marital, 
+         parenthood,
+         reflection_period,
+         predicted_category,
+         text) %>%
+  mutate(count = sapply(hm_data$text, wordcount)) %>%
+  filter(gender %in% c("m", "f")) %>%
+  filter(marital %in% c("single", "married")) %>%
+  filter(parenthood %in% c("n", "y")) %>%
+  filter(reflection_period %in% c("24h", "3m")) %>%
+  mutate(reflection_period = fct_recode(reflection_period, 
+                                        months_3 = "3m", hours_24 = "24h"))
+```
+
+
+```{r bag of words, warning=FALSE, message=FALSE,echo=FALSE}
+bag_of_words <-  hm_data %>%
+  unnest_tokens(word, text)
+word_count <- bag_of_words %>%
+  count(word, sort = TRUE)
+```
+
+```{r bigram, warning=FALSE, message=FALSE,echo=FALSE}
+hm_bigrams <- hm_data %>%
+  filter(count != 1) %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+bigram_counts <- hm_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  count(word1, word2, sort = TRUE)
+```
+
+
+##Word clouds of happy moments
+###Overall causes
+```{r wordcould overall,warning=FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+wordcloud(word_count$word, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.5,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Reds"))
+bigram<- hm_bigrams %>%
+      count(bigram, sort = TRUE) %>%
+      mutate(bigram = reorder(bigram, n))
+wordcloud(bigram$bigram, 
+          bigram$n,
+          max.words= 30,
+          scale = c(2.5,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Greens"))
+```
+
+First of all, we take a look the most popular words in all happy moments. The left is the most frequent single words and right is the most frequent pairs of words. The deeper the word, the more important it is. We can see that he most frequent single words is "friend", "day", "time". The most frequent pairs of words are "spend time", "video game", "moment life". Those words show the general causes of happiness.
+
+###Female vs Male
+
+```{r wordcould of single word by gender, warning=FALSE,message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+word_count_gender <- bag_of_words %>%
+      count(gender,word,sort=TRUE) %>%
+      mutate(word = reorder(word, n))
+word_count_female<- word_count_gender[which(word_count_gender$gender=="f"),2:3]
+word_count_male<- word_count_gender[which(word_count_gender$gender=="m"),2:3]
+wordcloud(word_count_female$word, 
+          word_count$n,
+          max.words=40,
+           scale = c(2.5,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Reds"))
+wordcloud(word_count_male$word, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.5,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Blues"))
+
+```
+```{r wordcould of pairs of words by gender, warning=FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+bigram.gender<- hm_bigrams %>%
+      count(gender, bigram, sort = TRUE) %>%
+      mutate(bigram = reorder(bigram, n))
+bigram.female<- bigram.gender[which(bigram.gender$gender=="f"),2:3]
+bigram.male<- bigram.gender[which(bigram.gender$gender=="m"),2:3]
+wordcloud(bigram.female$bigram, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.5,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Reds"))
+wordcloud(bigram.male$bigram, 
+          scale = c(2.5,0.3),
+          word_count$n,
+          max.words=40,
+          random.order=FALSE,
+          colors=brewer.pal(9, "Blues"))
+```
+
+Left is the most frequent causes of happiness in female and right is the most frequent causes of happiness in male. 
+
+There is no difference in the top three single words in gender. However, if we takes deep look, we can see that more females mention that "son", "daughter", "home" make them happy. And males mention more about "played", "game". It seems that woman cares more about family and males cares more about entertainments.
+
+There are differences in the top three pairs of words. For females, they are "moment life", "spend time" and "ice creams". For male, they are "video game", "spend time", and "watched movie". Same as what shows in single words, entertainment can easily make men happy. It is interesting to find that "ice creams" appears in the top three causes. Maybe we can say that there are more foodies in female than males. In addition, "lose pounds" appears word cloud of female. It may prove that females care more about keeping fit than males.
+
+
+###Parenthood vs Without Parenthood
+```{r wordcould of single word by parenthood,warning=FALSE,message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+word.parenthhood <- bag_of_words %>%
+      count(parenthood ,word,sort=TRUE) %>%
+      mutate(word = reorder(word, n))
+word.yes.parenthood<- word.parenthhood [which(word.parenthhood $parenthood=="y"),2:3]
+word.no.parenthood<- word.parenthhood [which(word.parenthhood $parenthood=="n"),2:3]
+wordcloud(word.yes.parenthood$word, 
+          word_count$n,
+          max.words=50,
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Reds"))
+wordcloud(word.no.parenthood$word, 
+          word_count$n,
+          max.words=50,
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Blues"))
+```
+  
+```{r wordcould of pair of words by parenthood,warning=FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+bigram.parenthood<- hm_bigrams %>%
+      count(parenthood, bigram, sort = TRUE) %>%
+      mutate(bigram = reorder(bigram, n))
+bigram.yes.parenthood<- bigram.parenthood[which(bigram.parenthood$parenthood=="y"),2:3]
+bigram.no.parenthood<- bigram.parenthood[which(bigram.parenthood$parenthood=="n"),2:3]
+wordcloud(bigram.yes.parenthood$bigram, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Reds"))
+wordcloud(bigram.no.parenthood$bigram, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Blues"))
+```
+
+Left is the most frequent causes of happiness for someone being a parent and right is the most frequent causes of happiness for someone not being a parents.
+
+The top frequent single words show that people having children will easily be happy because of their kid. People not having children are more likely to be happy because of friends.
+
+In the pairs of words, people having children will easily be happy because of ceremonies and anniversaries, like "birthday party", "mother day". People not having children are more likely to be happy because of food or entertainment, like" ice cream", "video games".
+
+
+###24 hours vs 3 months 
+```{r wordcould of single word by reflection period,warning=FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+word.reflection_period <- bag_of_words %>%
+      count(reflection_period ,word,sort=TRUE) %>%
+      mutate(word = reorder(word, n))
+word.hours_24<- word.reflection_period [which(word.reflection_period $reflection_period=="hours_24"),2:3]
+word.months_3<- word.reflection_period [which(word.reflection_period $reflection_period=="months_3"),2:3]
+wordcloud(word.hours_24$word, 
+          word_count$n,
+          max.words=50,
+           scale = c(2.4,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Reds"))
+wordcloud(word.months_3$word, 
+          word_count$n,
+          max.words=50,
+           scale = c(2.4,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Blues"))
+```
+```{r wordcould of pair of words by reflection period,warning=FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+bigram.reflection_period<- hm_bigrams %>%
+      count(reflection_period, bigram, sort = TRUE) %>%
+      mutate(bigram = reorder(bigram, n))
+bigram.hours_24<- bigram.reflection_period[which(bigram.reflection_period$reflection_period=="hours_24"),2:3]
+bigram.months_3<- bigram.reflection_period[which(bigram.reflection_period$reflection_period=="months_3"),2:3]
+wordcloud(bigram.hours_24$bigram, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Reds"))
+wordcloud(bigram.months_3$bigram, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Blues"))
+```
+
+Left is the most frequent causes of happiness in 24 hours and right is the most frequent causes of happiness in 3 months.
+
+There are no different of the top three frequent single words. However, "watched", "played", "night", "dinner" are more frequently in 24 hours; and "family", "job", "birthday" are more frequently in 3 months.
+
+In addition, "watched movie", "video game" appears more frequently in 24 hours; and " mother day"," birthday party" appears more frequently in 3 months. It seems that entertainment moments can easily cause happiness, but do not last long. The long time happiness are mostly because of anniversaries and festivals.
+
+
+
+###Different Categories
+```{r wordcould of single word by category,warning=FALSE,message=FALSE,echo=FALSE}
+par(mfrow=c(2,2))
+word_count_category <- bag_of_words %>%
+      count(predicted_category,word,sort=TRUE) %>%
+      mutate(word = reorder(word, n))
+word_count_exercise<- word_count_category[which(word_count_category$predicted_category=="exercise"),2:3]
+wordcloud(word_count_exercise$word, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Reds"))
+word_count_leisure<- word_count_category[which(word_count_category$predicted_category=="leisure"),2:3]
+wordcloud(word_count_leisure$word, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Blues"))
+word_count_enjoy_the_moment<-word_count_category[which(word_count_category$predicted_category=="enjoy_the_moment"),2:3]
+wordcloud(word_count_enjoy_the_moment$word, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Oranges"))
+word_count_nature<- word_count_category[which(word_count_category$predicted_category=="nature"),2:3]
+wordcloud(word_count_nature$word, 
+          word_count$n,
+          max.words=40,
+          scale = c(2.4,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Greens"))
+```
+```{r wordcould of pair of words by category,warning=FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(2,2))
+bigram.category<- hm_bigrams %>%
+      count(predicted_category, bigram, sort = TRUE) %>%
+      mutate(bigram = reorder(bigram, n))
+bigram.exercise<- bigram.category[which(bigram.category$predicted_category=="exercise"),2:3]
+wordcloud(bigram.exercise$bigram, 
+          word_count$n,
+          max.words=10,
+          scale = c(2,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Reds"))
+bigram.leisure<- bigram.category[which(bigram.category$predicted_category=="leisure"),2:3]
+wordcloud(bigram.leisure$bigram, 
+          word_count$n,
+          max.words=10,
+          scale = c(2,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Blues"))
+bigram.enjoy_the_moment<- bigram.category[which(bigram.category$predicted_category=="enjoy_the_moment"),2:3]
+wordcloud(bigram.enjoy_the_moment$bigram, 
+          word_count$n,
+          max.words=10,
+          scale = c(2,0.3),
+          random.order=FALSE,
+          rot.per=0.35,
+          colors=brewer.pal(9, "Oranges"))
+bigram.nature<- bigram.category[which(bigram.category$predicted_category=="nature"),2:3]
+wordcloud(bigram.nature$bigram, 
+          word_count$n,
+          max.words=10,
+          scale = c(2,0.3),
+          random.order=FALSE,
+          colors=brewer.pal(9, "Greens"))
+
+```
+
+We predicted 7 categories in previous data process. Here we randomly chosen 4 categories for comparison. 
+
+The difference in causes of happiness are most obvious between categories. 
+
+In single words, "gym", "run", "workout" are the top there frequent causes of happiness in exercise"; watched", "played", "game" are the top there frequent causes of happiness in leisure; "ate", "day", "time" are the top there frequent causes of happiness in enjoy the moment; "day", "weather", "rain" are the top there frequent causes of happiness in nature.
+
+In pairs of words, "workout gym", "ran miles", "bike ride" are the top there frequent causes of happiness in exercise; "watched movies", "watched favorite", "video game" are the top there frequent causes of happiness in leisure; "ice cream", "night sleep", "define happiness" are the top there frequent causes of happiness in enjoy the moment; "sunny day", "weather nice", "sun shining" are the top there frequent causes of happiness in nature.
+
+
+
+##Topic Allocation
+I set the topic numbers to be 7. I manually tag them as food&sport", "work achievement", "nature", "feeling", "moments", "people&emotion", and "importance day". Because Topic "food&sport" contains the key words: "coffee", "pizza", "baseball", "basketball" Topic "work achievement" contains "salary", "promoted", and "paying", Topic "nature" contains "cold", "birds", and "sunset", etc.
+
+Based on the most popular terms and the most salient terms for each topic, we assign a hashtag to each topic.
+```{r LDA ,message=FALSE,warning=FALSE,echo=FALSE}
+## prepare a corpus of sentence snipet 
+corpus.list=hm_data[2:(nrow(hm_data)-1), ]
+words.pre=hm_data$cleaned_hm[1:(nrow(hm_data)-2)]
+words.post=hm_data$cleaned_hm[3:(nrow(hm_data)-1)]
+corpus.list$snipets=paste(words.pre, corpus.list$cleaned_hm, words.post, sep=" ")
+
+dtm <- DocumentTermMatrix(Corpus(VectorSource(corpus.list$snipets)))
+
+## run LDA 
+burnin <- 400
+iter <- 200
+thin <- 50
+seed <-list(2003,5,63,100001,765)
+nstart <- 5
+best <- TRUE
+# number of topics
+k <- 7
+# run LDA using Gibbs sampling
+ldaOut <-LDA(dtm, k, method="Gibbs", control=list(nstart=nstart, 
+                                                  seed = seed, best=best,
+                                                  burnin = burnin, iter = iter, 
+                                                  thin=thin))
+# write out results
+ldaOut.topics <- as.matrix(topics(ldaOut))
+
+# top 20 terms in each topic
+ldaOut.terms <- as.matrix(terms(ldaOut,20))
+
+# probabilities associated with each topic assignment
+topicProbabilities <- as.data.frame(ldaOut@gamma)
+
+terms.beta=ldaOut@beta
+terms.beta=scale(terms.beta)
+topics.terms=NULL
+for(i in 1:k){
+  topics.terms=rbind(topics.terms, ldaOut@terms[order(terms.beta[i,], decreasing = TRUE)[1:15]])
+}
+```
+
+###Topic Allocation
+```{r ,message=FALSE,warning=FALSE,echo=FALSE}
+topics.hash=c("food&sport", "work achievement", "nature", "feeling", "moments", "people&emotion", "importance day")
+corpus.list$ldatopic=as.vector(ldaOut.topics)
+corpus.list$ldahash=topics.hash[ldaOut.topics]
+colnames(topicProbabilities)=topics.hash
+
+corpus.list.df=cbind(corpus.list, topicProbabilities)
+```
+
+```{r category,message=FALSE,warning=FALSE,echo=FALSE}
+topic.summary=tbl_df(corpus.list.df)%>%
+              select(predicted_category, "food&sport":"importance day")%>%
+              group_by(predicted_category)%>%
+              summarise_each(funs(mean))
+topic.summary=as.data.frame(topic.summary)
+rownames(topic.summary)<-topic.summary$predicted_category
+heatmap.2(as.matrix(topic.summary[,-1]), Rowv = FALSE,
+           scale = "column", key=F, 
+           col = bluered(100),
+           cexRow = 0.9, cexCol = 0.9, margins = c(8, 8),
+           trace = "none", density.info = "none")
+```
+
+We use heatmap to see the weight allocation of topics for predicted categories we predicted in data processing.
+
+Note that the red color indicates higher weights on that topic.
+
+From the heatmap, predicted categories are most similar to the topics allocated with higher weights. There category "nature" is weighted highest with  topic "nature"; category "leisure" is weighted highest with topic "food&sport";category "exercise" is weighted highest with topic "nature"; category "enjoy_the_moment"  is weighted highest with topic "moments", topic "bonding" is weighted highest with topic "important days"; topic "affection" is weighted highest with topic "people&emotion"; category "achievement"  is weighted highest with topic "working achievement". It is reasonable because the corresponding category and topic describe similar terms.
+
+
+```{r gender,message=FALSE,warning=FALSE,echo=FALSE}
+topic.summary=tbl_df(corpus.list.df)%>%
+              select(gender, "food&sport":"importance day")%>%
+              group_by(gender)%>%
+              summarise_each(funs(mean))
+topic.summary=as.data.frame(topic.summary)
+rownames(topic.summary)<-topic.summary$gender
+heatmap.2(as.matrix(topic.summary[,-1]), Rowv = FALSE,
+           scale = "column", key=F, 
+           col = bluered(100),
+           cexRow = 0.9, cexCol = 0.9, margins = c(8, 8),
+           trace = "none", density.info = "none")
+```
+
+Now let us look at the topic allocation among the gender. 
+
+From the heatmap, we see that the female mentions more about" people& emotion", "feeling", and "important day"; while the male mentions more about "moments","natures","food&sports",and "work achievement". The key words match the common causes of happiness in the two genders.
+
+
+```{r parethood,message=FALSE,warning=FALSE,echo=FALSE }
+topic.summary=tbl_df(corpus.list.df)%>%
+              select(parenthood,"food&sport":"importance day")%>%
+              group_by(parenthood)%>%
+              summarise_each(funs(mean))
+topic.summary=as.data.frame(topic.summary)
+rownames(topic.summary)<-topic.summary$parenthood
+heatmap.2(as.matrix(topic.summary[,-1]), Rowv = FALSE,
+           scale = "column", key=F, 
+           col = bluered(100),
+           cexRow = 0.9, cexCol = 0.9, margins = c(8, 8),
+           trace = "none", density.info = "none")
+```
+
+Next, let us look at the topic allocation among parenthood. 
+
+From the heatmap, we see that the people with parenthood mention more about "feeling", "moments", and "people& emotion"; while the people without parenthood mention more about "importance day", "natures", "food&sports",and "work achievement".
+
+
+```{r reflection period,message=FALSE,warning=FALSE,echo=FALSE}
+topic.summary=tbl_df(corpus.list.df)%>%
+              select(reflection_period,"food&sport":"importance day")%>%
+              group_by(reflection_period)%>%
+              summarise_each(funs(mean))
+topic.summary=as.data.frame(topic.summary)
+rownames(topic.summary)<-topic.summary$reflection_period
+heatmap.2(as.matrix(topic.summary[,-1]), Rowv = FALSE,
+           scale = "column", key=F, 
+           col = bluered(100),
+           cexRow = 0.9, cexCol = 0.9, margins = c(8, 8),
+           trace = "none", density.info = "none")
+```
+
+Finally, let us look at the topic allocation among reflection periods. 
+
+From the heatmap, we see that the people with parenthood mention more about "food&sport"; while the people without parenthood mention more about "importance day", "moments", "people& emotion", "feeling", "natures" and "work achievement". It is reasonable the happiness caused by food and sport usually don't last long time.
+
+
+
+##Conclusion
+There are some general causes of happiness, like "friends", "video games", "spend time", and "moment life". Next time if you feel unhappy, spending time with friend or playing the video game will make you happy most of time. 
+
+Although there are some general causes of happiness; there are some differences in the causes of happiness between genders, parenthoods, reflection periods, and categories.
+
+From the Topic Modeling and Topic Allocation, we might make the following conclusion.
+
+* Genders: Ice cream and spending time with family can easily make women happy. For man, most of them will feel happy in playing video games. In addition, women are more easily become happy because of important days, like anniversary and festival. Men are more easily become happy because of working achievements.
+
+* Parenthood: For people with parenthood, kids and ceremonies appear in most of their happy moments. For people without parenthood, friend, food and leisure appear more frequently. In addition, people with parenthood are more easily to be happy because of people and their emotion. People without parenthood are more easily become happy because of working achievements, food, and sports.
+
+* reflection periods: It seems that entertainment moments can easily cause happiness, but do not last long. The long-time happiness is mostly because of anniversaries and festivals.
+
+* Category: The difference in causes of happiness are most obvious between categories. Predicted categories are the most like the topics allocated with higher weights. There are different ways and different categories to be happy.
+
+I hope this study will help people find the most frequent causes of their happy moments. If we chose the most frequently causes of happiness followed our gender, parenthood, reflection period and favorite category, we might can be happy more easily.
+
+
+
