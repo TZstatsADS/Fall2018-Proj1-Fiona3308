@@ -14,7 +14,7 @@ By Yanzi Shen
 
 <font size=3>
 HappyDB is "a corpus of 100,000 crowd-sourced happy moments". 
-In this project, I apply text mining techniques and natural language processing to derive interesting finds in this collection of happy moments and look deeper into the causes that make us happy.
+In this project, I apply text mining techniques and natural language processing to derive interesting finds in this collection of happy moments and look deeper into the causes that make us happy. Once we compare the causes of happiness in different genders, parenthoods, reflection periods, and categories, we notice the detail difference in the causes of happiness.
 
 
 ```{r load libraries, warning=FALSE, message=FALSE,echo=FALSE}
@@ -210,7 +210,9 @@ wordcloud(bigram$bigram,
           colors=brewer.pal(9, "Greens"))
 ```
 
-First of all, we take a look the most popular words in all happy moments. The left is the most frequent single words and right is the most frequent pairs of words. The deeper the word, the more important it is. We can see that he most frequent single words is "friend", "day", "time". The most frequent pairs of words are "spend time", "video game", "moment life". Those words show the general causes of happiness.
+First of all, we take a look the most popular words in all happy moments. The deeper the word in the word cloud, the more important it is.
+
+The left is the most frequent single words and right is the most frequent pairs of words. We can see that he most frequent single words is "friend", "day", "time". The most frequent pairs of words are "spend time", "video game", "moment life". Those words show the common causes of happiness.
 
 ###Female vs Male
 
@@ -260,9 +262,9 @@ wordcloud(bigram.male$bigram,
 
 Left is the most frequent causes of happiness in female and right is the most frequent causes of happiness in male. 
 
-There is no difference in the top three single words in gender. However, if we takes deep look, we can see that more females mention that "son", "daughter", "home" make them happy. And males mention more about "played", "game". It seems that woman cares more about family and males cares more about entertainments.
+There is no difference in the top three single words between genders. However, if we take a deeper look, we can see that more females mention that "son", "daughter", "home" make them happy. And males mention more about "played", "game". It seems that woman cares more about family and males cares more about certain entertainments. 
 
-There are differences in the top three pairs of words. For females, they are "moment life", "spend time" and "ice creams". For male, they are "video game", "spend time", and "watched movie". Same as what shows in single words, entertainment can easily make men happy. It is interesting to find that "ice creams" appears in the top three causes. Maybe we can say that there are more foodies in female than males. In addition, "lose pounds" appears word cloud of female. It may prove that females care more about keeping fit than males.
+There are differences in the top three pairs of words. For females, they are "moment life", "spend time" and "ice creams". For male, they are "video game", "spend time", and "watched movie". Same as what shows in single words, entertainment can easily make men happy. It is interesting to find that "ice creams" appears in the top three causes in women's happiness. Maybe we can say that there are more foodies in female than males. In addition, "lose pounds" appears in the word cloud of female. It might prove that females care more about keeping fit than males.
 
 
 ###Parenthood vs Without Parenthood
@@ -308,11 +310,11 @@ wordcloud(bigram.no.parenthood$bigram,
           colors=brewer.pal(9, "Blues"))
 ```
 
-Left is the most frequent causes of happiness for someone being a parent and right is the most frequent causes of happiness for someone not being a parents.
+Left is the most frequent causes of happiness for someone being a parent and right is the most frequent causes of happiness for someone not being a parent.
 
-The top frequent single words show that people having children will easily be happy because of their kid. People not having children are more likely to be happy because of friends.
+The top frequent single words show that people having children will easily be happy because of their kid. Parents metion words more frenqutly then others: "son", "daughter" "kids". People not having children are more likely to be happy because of friends. Also, they mentions dog more.
 
-In the pairs of words, people having children will easily be happy because of ceremonies and anniversaries, like "birthday party", "mother day". People not having children are more likely to be happy because of food or entertainment, like" ice cream", "video games".
+In the pairs of words, people having children will easily be happy because of anniversaries snd festivals, like "birthday party", "mother day". People not having children are more likely to be happy because of food or entertainment, like" ice cream", "video games".
 
 
 ###24 hours vs 3 months 
@@ -363,8 +365,7 @@ Left is the most frequent causes of happiness in 24 hours and right is the most 
 
 There are no different of the top three frequent single words. However, "watched", "played", "night", "dinner" are more frequently in 24 hours; and "family", "job", "birthday" are more frequently in 3 months.
 
-In addition, "watched movie", "video game" appears more frequently in 24 hours; and " mother day"," birthday party" appears more frequently in 3 months. It seems that entertainment moments can easily cause happiness, but do not last long. The long time happiness are mostly because of anniversaries and festivals.
-
+In addition, "watched movie", "video game" appears more frequently in 24 hours; and " mother day"," birthday party" appears more frequently in 3 months. It seems that entertaining moments can easily cause happiness, but the happiness do not last long. The long time happiness are mostly because of things which are unique in long time, like anniversaries and festivals.
 
 
 ###Different Categories
@@ -444,13 +445,13 @@ wordcloud(bigram.nature$bigram,
 
 ```
 
-We predicted 7 categories in previous data process. Here we randomly chosen 4 categories for comparison. 
+There are 7 categories in the original data. Here we randomly selected 4 categories for comparison. 
 
 The difference in causes of happiness are most obvious between categories. 
 
-In single words, "gym", "run", "workout" are the top there frequent causes of happiness in exercise"; watched", "played", "game" are the top there frequent causes of happiness in leisure; "ate", "day", "time" are the top there frequent causes of happiness in enjoy the moment; "day", "weather", "rain" are the top there frequent causes of happiness in nature.
+In single words, "gym", "run", "workout" are the top there frequent causes of happiness in category "exercise"; watched", "played", "game" are the top there frequent causes of happiness in category "leisure"; "ate", "day", "time" are the top there frequent causes of happiness in category "enjoy the moment"; "day", "weather", "rain" are the top there frequent causes of happiness in categoty "nature.
 
-In pairs of words, "workout gym", "ran miles", "bike ride" are the top there frequent causes of happiness in exercise; "watched movies", "watched favorite", "video game" are the top there frequent causes of happiness in leisure; "ice cream", "night sleep", "define happiness" are the top there frequent causes of happiness in enjoy the moment; "sunny day", "weather nice", "sun shining" are the top there frequent causes of happiness in nature.
+In pairs of words, "workout gym", "ran miles", "bike ride" are the top there frequent causes of happiness in category "exercise"; "watched movies", "watched favorite", "video game" are the top there frequent causes of happiness in categoty "leisure"; "ice cream", "night sleep", "define happiness" are the top there frequent causes of happiness in category "enjoy the moment";"sunny day", "weather nice", "sun shining" are the top there frequent causes of happiness in category "nature".
 
 
 
@@ -498,7 +499,7 @@ for(i in 1:k){
 }
 ```
 
-###Topic Allocation
+
 ```{r ,message=FALSE,warning=FALSE,echo=FALSE}
 topics.hash=c("food&sport", "work achievement", "nature", "feeling", "moments", "people&emotion", "importance day")
 corpus.list$ldatopic=as.vector(ldaOut.topics)
@@ -522,11 +523,15 @@ heatmap.2(as.matrix(topic.summary[,-1]), Rowv = FALSE,
            trace = "none", density.info = "none")
 ```
 
-We use heatmap to see the weight allocation of topics for predicted categories we predicted in data processing.
+We use heatmap to see the weight allocation of topics for predicted categories in the original data
 
 Note that the red color indicates higher weights on that topic.
 
-From the heatmap, predicted categories are most similar to the topics allocated with higher weights. There category "nature" is weighted highest with  topic "nature"; category "leisure" is weighted highest with topic "food&sport";category "exercise" is weighted highest with topic "nature"; category "enjoy_the_moment"  is weighted highest with topic "moments", topic "bonding" is weighted highest with topic "important days"; topic "affection" is weighted highest with topic "people&emotion"; category "achievement"  is weighted highest with topic "working achievement". It is reasonable because the corresponding category and topic describe similar terms.
+From the heatmap, predicted categories contains the most similar terms with the topics allocated with higher weights.
+
+Form the tags, category "nature" is weighted highest with  topic "nature"; category "leisure" is weighted highest with topic "food&sport";category "exercise" is weighted highest with topic "nature"; category "enjoy themoment" is weighted highest with topic "moments", topic "bonding" is weighted highest with topic "important days"; topic "affection" is weighted highest with topic "people&emotion"; category "achievement"  is weighted highest with topic "working achievement". 
+
+It is reasonable because the most corresponding category and topic describe the most similar terms. our topic allocations are highly correct compared to the predicted categories in the original data.
 
 
 ```{r gender,message=FALSE,warning=FALSE,echo=FALSE}
@@ -564,7 +569,7 @@ heatmap.2(as.matrix(topic.summary[,-1]), Rowv = FALSE,
 
 Next, let us look at the topic allocation among parenthood. 
 
-From the heatmap, we see that the people with parenthood mention more about "feeling", "moments", and "people& emotion"; while the people without parenthood mention more about "importance day", "natures", "food&sports",and "work achievement".
+From the heatmap, we see that the people with parenthood mention more about "feeling", "moments", and "people& emotion"; while the people without parenthood mention more about "importance day", "natures", "food&sports",and "work achievement". The conclusion is pretty similar to that from word cloud.
 
 
 ```{r reflection period,message=FALSE,warning=FALSE,echo=FALSE}
@@ -600,7 +605,7 @@ From the Topic Modeling and Topic Allocation, we might make the following conclu
 
 * reflection periods: It seems that entertainment moments can easily cause happiness, but do not last long. The long-time happiness is mostly because of anniversaries and festivals.
 
-* Category: The difference in causes of happiness are most obvious between categories. Predicted categories are the most like the topics allocated with higher weights. There are different ways and different categories to be happy.
+* Category: The difference in causes of happiness are most obvious between categories. People can follow the most frequent word in the their favorite category to make themselves happy. People can follow the most frequent word in the their favorite category to make themselves happy. For example, people preferring exercise can workout in gym, and people preferring nature can enjoy sun shining.
 
 I hope this study will help people find the most frequent causes of their happy moments. If we chose the most frequently causes of happiness followed our gender, parenthood, reflection period and favorite category, we might can be happy more easily.
 
